@@ -1,10 +1,12 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"path"
 	"text/template"
+	"time"
 
 	"github.com/gorilla/websocket"
 )
@@ -21,17 +23,25 @@ var upgrader = websocket.Upgrader{
 
 // Message Define our message object
 type Message struct {
-	Email    string `json:"email"`
-	Username string `json:"username"`
-	Message  string `json:"message"`
+	ID      string    `json:"id"`
+	Author  string    `json:"author"`
+	Avatar  string    `json:"avatar"`
+	Message string    `json:"message"`
+	Image   string    `json:"images"`
+	Time    time.Time `json:"time"`
 }
 
 func main() {
+
+	fs := http.FileServer(http.Dir("../public"))
+	http.Handle("/", fs)
 	// index
-	http.HandleFunc("/", home)
+	http.HandleFunc("/home", home)
 
 	// chatRoom
 	http.HandleFunc("/chatRoom", chatRoom)
+
+	http.HandleFunc("/sample", sample)
 
 	// Configure websocket route
 	http.HandleFunc("/ws", handleConnections)
@@ -85,32 +95,37 @@ func handleMessages() {
 				client.Close()
 				delete(clients, client)
 			}
+
+			fmt.Println(msg.Author)
+			fmt.Println(msg.Message)
+			fmt.Println(msg.Time)
 		}
+	}
+}
+
+func render(w http.ResponseWriter, r *http.Request, fp string) {
+	tmpl, err := template.ParseFiles(fp)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if err := tmpl.Execute(w, nil); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
 
 func home(w http.ResponseWriter, r *http.Request) {
 	fp := path.Join("../public", "home.html")
-	tmpl, err := template.ParseFiles(fp)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	if err := tmpl.Execute(w, nil); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
+	render(w, r, fp)
 }
 
 func chatRoom(w http.ResponseWriter, r *http.Request) {
 	fp := path.Join("../public", "chatRoom.html")
-	tmpl, err := template.ParseFiles(fp)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	render(w, r, fp)
+}
 
-	if err := tmpl.Execute(w, nil); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
+func sample(w http.ResponseWriter, r *http.Request) {
+	fp := path.Join("../public", "sample.html")
+	render(w, r, fp)
 }
