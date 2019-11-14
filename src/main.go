@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 	"path"
@@ -16,6 +15,8 @@ var broadcast = make(chan Message)           // broadcast channel
 
 // Configure the upgrader
 var upgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
 	CheckOrigin: func(r *http.Request) bool {
 		return true
 	},
@@ -95,10 +96,6 @@ func handleMessages() {
 				client.Close()
 				delete(clients, client)
 			}
-
-			fmt.Println(msg.Author)
-			fmt.Println(msg.Message)
-			fmt.Println(msg.Time)
 		}
 	}
 }
