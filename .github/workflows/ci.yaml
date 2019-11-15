@@ -9,10 +9,32 @@ jobs:
     # This job runs on Linux
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@master
-      - uses: actions/setup-go@v1
+      - name: build 
+        - uses: actions/checkout@master
+        - uses: actions/setup-go@v1
+          with:
+            go-version: '1.9.3' # The Go version to download (if necessary) and use.
+        - run: go get github.com/gorilla/websocket
+        - run: go build -o dist ./src
+      - name: Archive production artifacts
+        uses: actions/upload-artifact@v1
         with:
-          go-version: '1.9.3' # The Go version to download (if necessary) and use.
-      - run: go get github.com/gorilla/websocket
-      - run: go build -o dist ./src
-      
+          name: dist
+          path: dist
+
+  deploy:
+    # Job name is Greeting
+    name: build go for deploy 
+    # This job runs on Linux
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download math result for job 1
+        uses: actions/download-artifact@v1
+        with:
+          name: dist
+      - shell: bash
+        run: |
+          aws configure set aws_access_key_id ${GITHUB_aws_access_key_id} 
+          aws configure set aws_secret_access_key ${GITHUB_aws_secret_access_key}
+          aws configure set default.region us-west-2
+          ls -latr
