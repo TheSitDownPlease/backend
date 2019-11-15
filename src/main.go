@@ -1,17 +1,17 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"path"
 	"text/template"
-	"time"
 
 	"github.com/gorilla/websocket"
 )
 
 var clients = make(map[*websocket.Conn]bool) // connected clients
-var broadcast = make(chan Message)           // broadcast channel
+var broadcast = make(chan RoomAction)        // broadcast channel
 
 // Configure the upgrader
 var upgrader = websocket.Upgrader{
@@ -24,12 +24,18 @@ var upgrader = websocket.Upgrader{
 
 // Message Define our message object
 type Message struct {
-	ID      string    `json:"id"`
-	Author  string    `json:"author"`
-	Avatar  string    `json:"avatar"`
-	Message string    `json:"message"`
-	Image   string    `json:"images"`
-	Time    time.Time `json:"time"`
+	ID      string `json:"id"`
+	Author  string `json:"author"`
+	Avatar  string `json:"avatar"`
+	Message string `json:"message"`
+	Image   string `json:"images"`
+	Time    int    `json:"time"`
+}
+
+// RoomAction the room action
+type RoomAction struct {
+	Action  string  `json:"action"`
+	Message Message `json:"data"`
 }
 
 func main() {
@@ -71,26 +77,29 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 	clients[ws] = true
 
 	for {
-		var msg Message
+		var action RoomAction
 		// Read in a new message as JSON and map it to a Message object
-		err := ws.ReadJSON(&msg)
+		err := ws.ReadJSON(&action)
 		if err != nil {
 			log.Printf("error: %v", err)
 			delete(clients, ws)
 			break
 		}
 		// Send the newly received message to the broadcast channel
-		broadcast <- msg
+		broadcast <- action
+
+		fmt.Print(action.Message.Message)
+		fmt.Println(action.Message.Time)
 	}
 }
 
 func handleMessages() {
 	for {
 		// Grab the next message from the broadcast channel
-		msg := <-broadcast
+		action := <-broadcast
 		// Send it out to every client that is currently connected
 		for client := range clients {
-			err := client.WriteJSON(msg)
+			err := client.WriteJSON(action)
 			if err != nil {
 				log.Printf("error: %v", err)
 				client.Close()

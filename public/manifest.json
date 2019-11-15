@@ -1,0 +1,23 @@
+{
+  "short_name": "i-Repair",
+  "name": "i-Repair",
+  "description": "This is a aws Hack'n'Roll competition works.",
+  "scope": ".",
+  "start_url": "/?utm_source=web_app_manifest",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#FF9478",
+  "background_color": "#FF9478",
+  "icons": [
+    {
+      "src": "/assets/icons/android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/assets/icons/android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
