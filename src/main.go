@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"path"
@@ -56,6 +57,16 @@ func main() {
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)
 	}
+}
+
+// HandleConnections is a func to handle connections
+func HandleConnections(ctx context.Context, msg Message) {
+	broadcast <- msg
+}
+
+//HandleMessages is a func to handle messages
+func HandleMessages() {
+	handleMessages()
 }
 
 func handleConnections(w http.ResponseWriter, r *http.Request) {
