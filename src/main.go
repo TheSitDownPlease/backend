@@ -2,8 +2,10 @@ package main
 
 import (
 	"database/sql"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"strconv"
@@ -107,17 +109,37 @@ func handleMessages() {
 }
 
 func saveMessage(w http.ResponseWriter, r *http.Request) {
-	fakeMsg := Message{
-		Author:  "Blues",
-		ID:      "this is id",
-		Avatar:  "fake.avatar.url",
-		Message: "this is generate from fake message",
-		Image:   "fake.image.url",
-		Time:    time.Now().Unix(),
+
+	body, err := ioutil.ReadAll(r.Body)
+	defer r.Body.Close()
+
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
 	}
+
+	var action RoomAction
+	err = json.Unmarshal(body, &action)
+
+	if err != nil {
+		log.Fatal("json unmarshal fail: ", err)
+	}
+
 	fmt.Println("before insert db")
-	insertMessageToDB(&fakeMsg)
+	insertMessageToDB(&action.Message)
 	fmt.Println("after insert db")
+
+	// fakeMsg := Message{
+	// 	Author:  "Blues",
+	// 	ID:      "this is id",
+	// 	Avatar:  "fake.avatar.url",
+	// 	Message: "this is generate from fake message",
+	// 	Image:   "fake.image.url",
+	// 	Time:    time.Now().Unix(),
+	// }
+	// fmt.Println("before insert db")
+	// insertMessageToDB(&action.Message)
+	// fmt.Println("after insert db")
 	//w.Write([]byte("<h1>Hello World!</h1>"))
 }
 
