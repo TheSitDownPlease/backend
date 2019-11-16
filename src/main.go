@@ -1,17 +1,15 @@
 package main
 
 import (
+	"database/sql"
 	"flag"
 	"fmt"
 	"log"
 	"net/http"
-	"net/url"
-	"os"
-	"os/signal"
-	"path"
-	"text/template"
+	"strconv"
 	"time"
 
+	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/websocket"
 )
 
@@ -36,7 +34,7 @@ type Message struct {
 	Avatar  string `json:"avatar"`
 	Message string `json:"message"`
 	Image   string `json:"images"`
-	Time    int    `json:"time"`
+	Time    int64  `json:"time"`
 }
 
 // RoomAction the room action
@@ -46,26 +44,19 @@ type RoomAction struct {
 }
 
 func main() {
-
 	fs := http.FileServer(http.Dir("../public"))
 	http.Handle("/", fs)
-	// index
-	http.HandleFunc("/home", home)
 
-	// chatRoom
-	http.HandleFunc("/chatRoom", chatRoom)
-
-	http.HandleFunc("/sample", sample)
+	http.HandleFunc("/save_msg", saveMessage)
 
 	// Configure websocket route
 	http.HandleFunc("/ws", handleConnections)
-
 	// Start listening for incoming chat messages
 	go handleMessages()
-
 	// Start the server on localhost port 8000 and log any errors
-	log.Println("http server started on :8000")
+	fmt.Println("Go Server is start at localhost:8000")
 	err := http.ListenAndServe(":8000", nil)
+
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)
 	}
@@ -95,8 +86,7 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 		// Send the newly received message to the broadcast channel
 		broadcast <- action
 
-		fmt.Print(action.Message.Message)
-		fmt.Println(action.Message.Time)
+		insertMessageToDB(&action.Message)
 	}
 }
 
@@ -116,91 +106,60 @@ func handleMessages() {
 	}
 }
 
-func render(w http.ResponseWriter, r *http.Request, fp string) {
-	tmpl, err := template.ParseFiles(fp)
+func saveMessage(w http.ResponseWriter, r *http.Request) {
+	fakeMsg := Message{
+		Author:  "Blues",
+		ID:      "this is id",
+		Avatar:  "fake.avatar.url",
+		Message: "this is generate from fake message",
+		Image:   "fake.image.url",
+		Time:    time.Now().Unix(),
+	}
+	fmt.Println("before insert db")
+	insertMessageToDB(&fakeMsg)
+	fmt.Println("after insert db")
+	//w.Write([]byte("<h1>Hello World!</h1>"))
+}
+
+func insertMessageToDB(msg *Message) {
+	// Open up our database connection.
+	// I've set up a database on my local machine using phpmyadmin.
+	// The database is called testDb
+	db, err := sql.Open("mysql", "admin:herb123456@tcp(database-1.cgn5wkvotooq.ap-east-1.rds.amazonaws.com:3306)/irepair")
+
+	//db, err := sql.Open("mysql", "master:xHi52E5R09aKMRr6blFH@tcp(localhost:3306)/irepair")
+
+	// if there is an error opening the connection, handle it
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		panic(err.Error())
 	}
 
-	if err := tmpl.Execute(w, nil); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
-}
+	// defer the close till after the main function has finished
+	// executing
+	defer db.Close()
 
-func home(w http.ResponseWriter, r *http.Request) {
-	fp := path.Join("../public", "home.html")
-	render(w, r, fp)
-}
+	// perform a db.Query insert
+	insertTime := stampToDate(strconv.FormatInt(msg.Time, 10))
+	insert, err := db.Query("INSERT INTO Messages (author, avatar, message, image, time, id, username) VALUES (?, ?, ?, ?, ?, null, ?)",
+		msg.Author, msg.Avatar, msg.Message, msg.Image, insertTime, msg.ID)
 
-func chatRoom(w http.ResponseWriter, r *http.Request) {
-	fp := path.Join("../public", "chatRoom.html")
-	render(w, r, fp)
-}
-
-func sample(w http.ResponseWriter, r *http.Request) {
-	fp := path.Join("../public", "sample.html")
-	render(w, r, fp)
-}
-
-func dial() {
-	flag.Parse()
-	log.SetFlags(0)
-
-	interrupt := make(chan os.Signal, 1)
-	signal.Notify(interrupt, os.Interrupt)
-
-	u := url.URL{Scheme: "ws", Host: *wsAddr, Path: "/echo"}
-	log.Printf("connecting to %s", u.String())
-
-	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+	// if there is an error inserting, handle it
 	if err != nil {
-		log.Fatal("dial:", err)
+		panic(err.Error())
 	}
-	defer c.Close()
+	// be careful deferring Queries if you are using transactions
+	defer insert.Close()
+}
 
-	done := make(chan struct{})
+func stampToDate(strTime string) string {
 
-	go func() {
-		defer close(done)
-		for {
-			_, message, err := c.ReadMessage()
-			if err != nil {
-				log.Println("read:", err)
-				return
-			}
-			log.Printf("recv: %s", message)
-		}
-	}()
-
-	ticker := time.NewTicker(time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-done:
-			return
-		case t := <-ticker.C:
-			err := c.WriteMessage(websocket.TextMessage, []byte(t.String()))
-			if err != nil {
-				log.Println("write:", err)
-				return
-			}
-		case <-interrupt:
-			log.Println("interrupt")
-
-			// Cleanly close the connection by sending a close message and then
-			// waiting (with timeout) for the server to close the connection.
-			err := c.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
-			if err != nil {
-				log.Println("write close:", err)
-				return
-			}
-			select {
-			case <-done:
-			case <-time.After(time.Second):
-			}
-			return
-		}
+	formatTime := strTime
+	if len(strTime) > 10 {
+		formatTime = strTime[0:10]
 	}
+
+	i, _ := strconv.ParseInt(formatTime, 10, 64)
+	tm := time.Unix(i, 0)
+
+	return tm.Format("2006-01-02 15:04:05")
 }
