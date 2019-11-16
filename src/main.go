@@ -51,6 +51,7 @@ func main() {
 
 	http.HandleFunc("/save_msg", saveMessage)
 
+	http.HandleFunc("/health_check", healthCheck)
 	// Configure websocket route
 	http.HandleFunc("/ws", handleConnections)
 	// Start listening for incoming chat messages
@@ -106,6 +107,10 @@ func handleMessages() {
 			}
 		}
 	}
+}
+
+func healthCheck(w http.ResponseWriter, r *http.Request) {
+	return
 }
 
 func saveMessage(w http.ResponseWriter, r *http.Request) {
