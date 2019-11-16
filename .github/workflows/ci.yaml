@@ -34,7 +34,7 @@ jobs:
           name: dist
       - shell: bash
         run: |
-          aws configure set aws_access_key_id ${GITHUB_aws_access_key_id} 
-          aws configure set aws_secret_access_key ${GITHUB_aws_secret_access_key}
+          aws configure set aws_access_key_id ${aws_access_key_id} 
+          aws configure set aws_secret_access_key ${aws_secret_access_key}
           aws configure set default.region us-west-2
           ls -latr
